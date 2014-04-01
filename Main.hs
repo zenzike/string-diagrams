@@ -3,11 +3,30 @@
 
 {- TODO:
 
-   - Enhance End so it has Funct, Uniq, and two Ints (e.g. 7 of 9)
-   - Modify wire to capture that info
-   - Change match to compute angles based on 7 of 9 info
-   - Add a (Maybe Diagram) to NT
+   - Why do we need the Id constructor at all?  I think we can get rid
+     of it.
+
+   - Enhance NT to contain Angles for each input/output.  Idea is that
+     each NT should determine what angles will look best.  Probably we will
+     make some smart constructors for making common types: e.g. unit,
+     counit, symm, braid, generic m-to-n, etc.  Also makes sense to add a
+     (Maybe Diagram) to NT, to be used in the center.
+
+   - Enhance End so it has Funct, Uniq, and Angle
+
+   - Modify wire to save info re: Angles from the NTs into the Ends
+
+   - typecheck categories as well
+
+   - idea: instead of failing with Maybe upon a typechecking error,
+     just record the problem in the right place, draw the diagram anyway,
+     and *highlight the error* (e.g. a red circle around a place where two
+     different functors meet).  In other words, generate *visual* error messages!
+
    - other fun things!
+     - symmetry
+     - braiding
+     - adjunctions?
 
 -}
 
