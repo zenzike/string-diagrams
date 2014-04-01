@@ -57,7 +57,7 @@ executable strings
   -- other-extensions:    
   
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.7 && <4.8, free
+  build-depends:       base >=4.7 && <4.8, free, monad-supply, diagrams-lib
   
   -- Directories containing source files.
   -- hs-source-dirs:      
