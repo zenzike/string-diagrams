@@ -1,6 +1,16 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE TupleSections #-}
 
+{- TODO:
+
+   - Enhance End so it has Funct, Uniq, and two Ints (e.g. 7 of 9)
+   - Modify wire to capture that info
+   - Change match to compute angles based on 7 of 9 info
+   - Add a (Maybe Diagram) to NT
+   - other fun things!
+
+-}
+
 module Main where
 
 import           Control.Applicative
@@ -104,7 +114,7 @@ match [] [] = Just []
 match [] _  = Nothing
 match _ []  = Nothing
 match ((Just x, i):xs) ((Just y, j):ys)
-  | x == y     = (((i, 270@@deg),(j, 90@@deg)) :) <$> match xs ys
+  | x == y     = (((i, 270@@deg),(j, 270@@deg)) :) <$> match xs ys
   | otherwise  = Nothing
 
 adorn :: Term IFace -> Maybe (IFace, [Term IFace])
@@ -116,7 +126,7 @@ drawTerm t es = drawBlocks t # drawEdges es
 drawBlocks :: Term IFace -> Diagram B R2
 drawBlocks (_ :< Atom _ u) = square 1 # named u
 drawBlocks (_ :< Horz xs)  = map drawBlocks xs # hcat # centerX
-drawBlocks (_ :< Vert xs)  = map drawBlocks xs # vcat # centerY
+drawBlocks (_ :< Vert xs)  = map drawBlocks xs # reverse # vcat # centerY
 
 drawEdges :: [Edge] -> Diagram B R2 -> Diagram B R2
 drawEdges = applyAll . map drawEdge
