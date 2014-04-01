@@ -1,18 +1,19 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TupleSections #-}
 
 module Main where
 
-import Prelude hiding (mapM)
-import Control.Comonad.Cofree
-import Control.Monad.Supply
-import Control.Arrow
-import Data.Function
-import Data.Maybe
-import Data.Traversable
-import Control.Applicative
-import Diagrams.Prelude
+import           Control.Applicative
+import           Control.Arrow
+import           Control.Comonad.Cofree
+import           Control.Monad.Supply
+import           Data.Function
+import           Data.Maybe
+import           Data.Traversable
+import           Diagrams.Backend.SVG.CmdLine
+import           Diagrams.Prelude
+import           Diagrams.TwoD.Path.Metafont
+import           Prelude                      hiding (mapM)
 
 type Term = Cofree TermF
 type Uniq = Int
@@ -46,8 +47,6 @@ vert ts = () :< Vert ts
 
 type Funct = Maybe String
 
-main = undefined
-
 r = Just "R"
 l = Just "L"
 
@@ -63,11 +62,13 @@ ex1 = vert [ horz [ ε, i r ], horz [ i r, η ]]
 deco :: Term a -> (a, Term a)
 deco (a :< f) = (a, a :< f)
 
+type Joint = (Uniq, Angle)
+type Edge = (Joint, Joint)
+
 type Type = ([Funct], [Funct])
 type End = (Funct, Uniq)
 type IFace = ([End], [End])
 type IVert = ((IFace, [Term IFace]), [Edge])
-
 
 uniq :: Term a -> Term a
 uniq t = evalSupply (traverse' (const supply) t) [(0 :: Int) ..]
@@ -109,7 +110,21 @@ match ((Just x, i):xs) ((Just y, j):ys)
 adorn :: Term IFace -> Maybe (IFace, [Term IFace])
 adorn t@(a :< _) = Just (a, [t])
 
-type Joint = (Uniq, Angle)
-type Edge = (Joint, Joint)
+drawTerm :: Term IFace -> [Edge] -> Diagram B R2
+drawTerm t es = drawBlocks t # drawEdges es
 
+drawBlocks :: Term IFace -> Diagram B R2
+drawBlocks (_ :< Atom _ u) = square 1 # named u
+drawBlocks (_ :< Horz xs)  = map drawBlocks xs # hcat # centerX
+drawBlocks (_ :< Vert xs)  = map drawBlocks xs # vcat # centerY
 
+drawEdges :: [Edge] -> Diagram B R2 -> Diagram B R2
+drawEdges = applyAll . map drawEdge
+  where
+    drawEdge ((u1,a1),(u2,a2)) =
+      withNames [u1, u2] $ \[sub1, sub2] ->
+        atop (metafont $ location sub1 .- leaving (fromDirection a1) <> arriving (fromDirection a2) -. endpt (location sub2))
+
+main = case wire (uniq ex1) of
+         Nothing -> return ()
+         Just (t, es) -> defaultMain (drawTerm t es)
