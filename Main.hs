@@ -1,5 +1,7 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TupleSections         #-}
 
 {- TODO:
 
@@ -63,15 +65,30 @@ traverse' f (a :< Atom n u) = ((a :<) . Atom n) <$> f u
 traverse' f (a :< Horz xs)  = ((a :<) . Horz) <$> traverse (traverse' f) xs
 traverse' f (a :< Vert xs)  = ((a :<) . Vert) <$> traverse (traverse' f) xs
 
+type Funct = Maybe String
+
+fun :: String -> Funct
+fun = Just
+
+type Type = ([(Funct, Angle)], [(Funct, Angle)])
+
 data NT = NT String Type
-        | Id Funct
-        deriving Show
+  deriving Show
 
 nt :: String -> Type -> Term ()
 nt n t = () :< Atom (NT n t) 0
 
 i :: Funct -> Term ()
-i f = () :< Atom (Id f) 0
+i f = () :< Atom (NT (fromMaybe "" f) ([(f, 270 @@ deg)], [(f, 270 @@ deg)])) 0
+
+id' :: Term ()
+id' = () :< Atom (NT "" ([], [])) 0
+
+counit :: String -> Funct -> Funct -> Term ()
+counit n f g = nt n ([(f, 0 @@ deg), (g, 180 @@ deg)], [(Nothing, 270 @@ deg)])
+
+unit :: String -> Funct -> Funct -> Term ()
+unit n g f = nt n ([(Nothing, 270 @@ deg)], [(g, 180 @@ deg), (f, 0 @@ deg)])
 
 horz :: [Term ()] -> Term ()
 horz ts = () :< Horz ts
@@ -79,19 +96,27 @@ horz ts = () :< Horz ts
 vert :: [Term ()] -> Term ()
 vert ts = () :< Vert ts
 
-type Funct = Maybe String
+infixr 7 ∘
+(∘) :: Term () -> Term () -> Term ()
+α ∘ β = horz [α, β]
 
-r = Just "R"
-l = Just "L"
+infixr 7 •
+(•) :: Term () -> Term () -> Term ()
+α • β = vert [α, β]
 
-ε = nt "epsilon" ([ r , l ], [Nothing])
-η = nt "eta"     ([Nothing], [l, r])
+r, l :: Funct
+r = fun "R"
+l = fun "L"
+
+ε, epsilon, η, eta :: Term ()
+ε = counit "epsilon" r l
+η = unit   "eta"     l r
 
 epsilon = ε
 eta = η
 
 ex1 :: Term ()
-ex1 = vert [ horz [ ε, i r ], horz [ i r, η ]]
+ex1 = (ε ∘ i r) • (i r ∘ η)
 
 deco :: Term a -> (a, Term a)
 deco (a :< f) = (a, a :< f)
@@ -99,8 +124,7 @@ deco (a :< f) = (a, a :< f)
 type Joint = (Uniq, Angle)
 type Edge = (Joint, Joint)
 
-type Type = ([Funct], [Funct])
-type End = (Funct, Uniq)
+type End = ((Funct, Angle), Uniq)
 type IFace = ([End], [End])
 type IVert = ((IFace, [Term IFace]), [Edge])
 
@@ -109,7 +133,6 @@ uniq t = evalSupply (traverse' (const supply) t) [(0 :: Int) ..]
 
 wire :: Term () -> Maybe (Term IFace, [Edge])
 wire (() :< (Atom (NT n (is, os)) u)) = Just ((map (, u) is, map (, u) os) :< (Atom (NT n (is, os)) u), [])
-wire (() :< (Atom (Id f) u))          = Just (([(f, u)], [(f, u)]) :< (Atom (Id f) u), [])
 wire (() :< (Horz xs ))               =
   case mapM wire xs of
     Nothing -> Nothing
@@ -126,39 +149,43 @@ wire (() :< (Vert xs))           =
     op (Just (((is,os), ts), es)) (Just (((is',os'), ts'), es'))
       = case match os' is of
           Nothing   -> Nothing
-          Just es'' -> Just (((is, os'), ts ++ ts'), es ++ es' ++ es'')
+          Just es'' -> Just (((is', os), ts ++ ts'), es ++ es' ++ es'')
 
 strength :: Functor m => (m a, b) -> m (a, b)
 strength (m, b) = (, b) <$> m
 
 match :: [End] -> [End] -> Maybe [Edge]
-match ((Nothing, _):xs) ys = match xs ys
-match xs ((Nothing, _):ys) = match xs ys
+match (((Nothing, _), _):xs) ys = match xs ys
+match xs (((Nothing, _), _):ys) = match xs ys
 match [] [] = Just []
 match [] _  = Nothing
 match _ []  = Nothing
-match ((Just x, i):xs) ((Just y, j):ys)
-  | x == y     = (((i, 270@@deg),(j, 270@@deg)) :) <$> match xs ys
+match (((Just x, ax), i):xs) (((Just y, ay), j):ys)
+  | x == y     = (((i, ax),(j, ay)) :) <$> match xs ys
   | otherwise  = Nothing
 
 adorn :: Term IFace -> Maybe (IFace, [Term IFace])
 adorn t@(a :< _) = Just (a, [t])
 
-drawTerm :: Term IFace -> [Edge] -> Diagram B R2
+drawTerm :: (Renderable (Path R2) b) => Term IFace -> [Edge] -> Diagram b R2
 drawTerm t es = drawBlocks t # drawEdges es
 
-drawBlocks :: Term IFace -> Diagram B R2
-drawBlocks (_ :< Atom _ u) = square 1 # named u
+drawBlocks :: (Renderable (Path R2) b) => Term IFace  -> Diagram b R2
+drawBlocks (_ :< Atom (NT _ (tyi, tyo)) u) = rect (fromIntegral (maximum [1, length tyi, length tyo])) 1 # lw 0 # named u
 drawBlocks (_ :< Horz xs)  = map drawBlocks xs # hcat # centerX
 drawBlocks (_ :< Vert xs)  = map drawBlocks xs # reverse # vcat # centerY
 
-drawEdges :: [Edge] -> Diagram B R2 -> Diagram B R2
+drawEdges :: (Renderable (Path R2) b) => [Edge] -> Diagram b R2 -> Diagram b R2
 drawEdges = applyAll . map drawEdge
   where
     drawEdge ((u1,a1),(u2,a2)) =
       withNames [u1, u2] $ \[sub1, sub2] ->
         atop (metafont $ location sub1 .- leaving (fromDirection a1) <> arriving (fromDirection a2) -. endpt (location sub2))
 
-main = case wire (uniq ex1) of
+main = case wire (uniq ex2) of
          Nothing -> return ()
          Just (t, es) -> defaultMain (drawTerm t es)
+
+ex2 = ex1 • (i r ∘ id' ∘ id')
+
+-- main = return ()
