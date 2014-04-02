@@ -18,6 +18,11 @@
 
    - typecheck categories as well
 
+   - Ah, when typechecking horizontal composition, we also need to
+     "pad out" each block vertically so all the blocks have the same height.
+     This can be done by simply adding appropriate identity transformations
+     (which corresponds to extending strings upwards/downwards).
+
    - idea: instead of failing with Maybe upon a typechecking error,
      just record the problem in the right place, draw the diagram anyway,
      and *highlight the error* (e.g. a red circle around a place where two
