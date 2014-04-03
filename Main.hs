@@ -6,8 +6,12 @@
 {- TODO:
 
    - Add more smart constructors: symm, braid, generic m-to-n, etc.
-     Also add a (Maybe Diagram) to NT, to be used in the
-     center.
+
+
+   - Adding (Maybe Diagram) to NT is problematic, since Diagram needs
+     some type parameters and these would end up infecting NT, TermF, and
+     Term.  Probably a better idea is to pass a Map String Diagram to the
+     drawing function, which specifies how to draw each NT.
 
    - typecheck categories as well
 
@@ -173,10 +177,14 @@ drawEdges = applyAll . map drawEdge
       withNames [u1, u2] $ \[sub1, sub2] ->
         atop (metafont $ location sub1 .- leaving (fromDirection a1) <> arriving (fromDirection a2) -. endpt (location sub2))
 
-main = case wire (uniq ex2) of
+ex2 = ex1 • (i r ∘ id' ∘ id')
+
+mu = (i l ∘ i r) • (i l ∘ ε ∘ i r) • (i l ∘ i r ∘ i l ∘ i r)
+
+mumu = mu • (mu ∘ (i l • i l • i l) ∘ (i r • i r • i r))
+
+main = case wire (uniq mumu) of
          Nothing -> return ()
          Just (t, es) -> defaultMain (drawTerm t es)
-
-ex2 = ex1 • (i r ∘ id' ∘ id')
 
 -- main = return ()
